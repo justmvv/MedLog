@@ -1,0 +1,21 @@
+{
+    "name": "Крест — приём лекарств",
+    "short_name": "Крест",
+    "id": "./",
+    "start_url": "./",
+    "scope": "./",
+    "display": "standalone",
+    "background_color": "#F1F8E9",
+    "theme_color": "#F5F9F0",
+    "description": "График приёма лекарств, отметки, время еды и калории, тепловая карта месяца",
+    "orientation": "portrait-primary",
+    "lang": "ru",
+    "categories": ["health", "medical", "lifestyle"],
+    "prefer_related_applications": false,
+    "icons": [
+        {"src": "icons/Icon-192.png", "sizes": "192x192", "type": "image/png"},
+        {"src": "icons/Icon-512.png", "sizes": "512x512", "type": "image/png"},
+        {"src": "icons/Icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable"},
+        {"src": "icons/Icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+    ]
+}

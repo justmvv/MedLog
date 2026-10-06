@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta name="description" content="График приёма лекарств, отметки, время еды и калории, тепловая карта месяца">
+  <meta name="theme-color" content="#F5F9F0">
+
+  <!-- iOS -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Крест">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="manifest" href="manifest.json">
+  <title>Крест</title>
+
+  <style>
+    html, body { margin: 0; height: 100%; background: #F5F9F0; }
+    #splash {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      transition: opacity .3s ease;
+    }
+    #splash img { width: 88px; height: 88px; }
+
+    /* Плашки «Доступна новая версия» и «Установить» — поверх Flutter. */
+    .pwa-bar {
+      position: fixed; z-index: 1000; left: 50%; transform: translateX(-50%);
+      top: calc(env(safe-area-inset-top, 0px) + 10px);
+      display: none; align-items: center; gap: 10px; max-width: calc(100vw - 32px);
+      padding: 8px 8px 8px 14px; box-sizing: border-box;
+      background: #FFFFFF; color: #13262A; border: 1.5px solid #3E7F2C; border-radius: 6px;
+      font: 14px/1.3 Roboto, "Helvetica Neue", Arial, sans-serif;
+      box-shadow: 0 4px 16px rgba(47, 107, 234, .14);
+    }
+    .pwa-bar.show { display: flex; }
+    #pwa-install { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 80px); }
+    .pwa-bar button {
+      font: inherit; cursor: pointer; border-radius: 4px; padding: 6px 12px;
+      border: 1.5px solid #3E7F2C; background: #3E7F2C; color: #fff; white-space: nowrap;
+    }
+    .pwa-bar button.ghost { background: transparent; color: #5B6D66; border-color: transparent; padding: 6px 8px; }
+  </style>
+</head>
+<body>
+  <div id="splash"><img src="icons/logo.png" alt=""></div>
+
+  <div id="pwa-update" class="pwa-bar" role="status">
+    <span>Доступна новая версия</span>
+    <button id="pwa-update-btn">Обновить</button>
+    <button class="ghost" data-close aria-label="Позже">✕</button>
+  </div>
+  <div id="pwa-install" class="pwa-bar">
+    <span>Установить «Крест» на устройство?</span>
+    <button id="pwa-install-btn">Установить</button>
+    <button class="ghost" data-close aria-label="Не сейчас">✕</button>
+  </div>
+
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var s = document.getElementById('splash');
+      if (s) { s.style.opacity = 0; setTimeout(function () { s.remove(); }, 300); }
+    });
+
+    // Состояние PWA — для отладки: window.__pwa
+    var pwa = window.__pwa = { installable: false, installed: false, updateReady: false };
+    function bar(id, on) { document.getElementById(id).classList.toggle('show', on); }
+    document.querySelectorAll('.pwa-bar [data-close]').forEach(function (b) {
+      b.onclick = function () { b.parentElement.classList.remove('show'); };
+    });
+
+    // ── Установка (Chrome / Edge / Android) ─────────────────────
+    var deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      deferredPrompt = e;
+      pwa.installable = true;
+      bar('pwa-install', true);
+    });
+    document.getElementById('pwa-install-btn').onclick = function () {
+      bar('pwa-install', false);
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.finally(function () { deferredPrompt = null; });
+    };
+    // iOS Safari не умеет предлагать установку сам — показываем подсказку один раз.
+    (function () {
+      var ua = navigator.userAgent;
+      var ios = !/android/i.test(ua) && (/iphone|ipad|ipod/i.test(ua) ||
+        (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1 && /safari/i.test(ua) && !/chrome|crios|edg/i.test(ua)));
+      var standalone = navigator.standalone || matchMedia('(display-mode: standalone)').matches;
+      var seen = false;
+      try { seen = localStorage.getItem('pwa.iosHint') === '1'; } catch (e) {}
+      if (!ios || standalone || seen) return;
+      document.querySelector('#pwa-install span').textContent =
+        'Установить: «Поделиться» → «На экран „Домой“»';
+      var btn = document.getElementById('pwa-install-btn');
+      btn.textContent = 'Понятно';
+      btn.onclick = function () {
+        bar('pwa-install', false);
+        try { localStorage.setItem('pwa.iosHint', '1'); } catch (e) {}
+      };
+      bar('pwa-install', true);
+    })();
+
+    window.addEventListener('appinstalled', function () {
+      pwa.installed = true;
+      bar('pwa-install', false);
+    });
+
+    // ── Service worker и обновления ─────────────────────────────
+    if ('serviceWorker' in navigator) {
+      var sw = navigator.serviceWorker;
+      var reloading = false;
+
+      // Новая версия активирована по нашей кнопке — перезагружаемся на неё.
+      sw.addEventListener('controllerchange', function () {
+        if (reloading) location.reload();
+      });
+
+      // Файлы, скачанные до того, как SW взял страницу под контроль, — в кэш.
+      function cacheLoaded() {
+        if (!sw.controller) return;
+        var urls = performance.getEntriesByType('resource')
+          .map(function (r) { return r.name.split('#')[0]; })
+          .filter(function (u) {
+            return (u.indexOf(location.origin) === 0 && !/\/(sw\.js|version\.json)/.test(u)) ||
+              u.indexOf('https://fonts.gstatic.com/') === 0;
+          });
+        sw.controller.postMessage({ type: 'CACHE_URLS', urls: urls });
+      }
+
+      function waitingFound(reg) {
+        // Первая установка (нет контроллера) — это не обновление.
+        if (!reg.waiting || !sw.controller) return;
+        pwa.updateReady = true;
+        bar('pwa-update', true);
+        document.getElementById('pwa-update-btn').onclick = function () {
+          reloading = true;
+          bar('pwa-update', false);
+          reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+        };
+      }
+
+      window.addEventListener('load', function () {
+        sw.register('sw.js', { updateViaCache: 'none' }).then(function (reg) {
+          pwa.registration = reg;
+          waitingFound(reg);
+          reg.addEventListener('updatefound', function () {
+            var nw = reg.installing;
+            nw && nw.addEventListener('statechange', function () {
+              if (nw.state === 'installed') waitingFound(reg);
+            });
+          });
+          // Проверяем обновления при возврате в приложение и раз в 30 минут.
+          document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') reg.update().catch(function () {});
+          });
+          setInterval(function () { reg.update().catch(function () {}); }, 30 * 60 * 1000);
+        }).catch(function () {});
+
+        if (sw.controller) setTimeout(cacheLoaded, 3000);
+        else sw.addEventListener('controllerchange', function () { setTimeout(cacheLoaded, 1000); }, { once: true });
+      });
+    }
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
