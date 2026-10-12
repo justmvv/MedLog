@@ -1,0 +1,88 @@
+name: Сборка и публикация на GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # только для создания релиза по тегу
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.44.8
+          cache: true
+
+      - name: Зависимости
+        run: flutter pub get
+
+      - name: Анализ
+        run: flutter analyze
+
+      - name: Тесты
+        run: flutter test
+
+      # Тег vX.Y.Z должен совпадать с version: в pubspec.yaml.
+      - name: Проверка версии тега
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          v=$(grep -E '^version:' pubspec.yaml | awk '{print $2}'); v=${v%%+*}
+          [ "v$v" = "${GITHUB_REF_NAME}" ] || { echo "Тег ${GITHUB_REF_NAME} ≠ версии $v в pubspec.yaml"; exit 1; }
+
+      # Сайт проекта: https://<user>.github.io/<repo>/
+      - name: Сборка PWA
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+          COMMIT: ${{ github.sha }}
+        run: tool/build_web.sh --base-href "/${{ github.event.repository.name }}/"
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          path: build/web
+
+      - name: Архив сборки для релиза
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: cd build/web && zip -qr "$GITHUB_WORKSPACE/medlog-web-${GITHUB_REF_NAME}.zip" .
+
+      - name: Релиз GitHub
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v=${GITHUB_REF_NAME#v}
+          # Раздел версии из CHANGELOG.md — описание релиза.
+          awk -v v="$v" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ || /^\[.*\]: / {f=0} f' CHANGELOG.md > notes.md
+          gh release create "$GITHUB_REF_NAME" "medlog-web-${GITHUB_REF_NAME}.zip" \
+            --title "$GITHUB_REF_NAME" --notes-file notes.md
+
+  deploy:
+    # Окружение github-pages по умолчанию принимает только основную ветку;
+    # тег vX.Y.Z публикует релиз с архивом сборки (шаги выше).
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

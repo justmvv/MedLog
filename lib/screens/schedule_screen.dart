@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../app_version.dart';
 import '../main.dart';
 import '../models.dart';
 import '../store.dart';
 import '../theme.dart';
-
-/// Идентификатор сборки, задаётся в tool/build_web.sh.
-const buildId = String.fromEnvironment('BUILD_ID', defaultValue: 'dev');
 
 /// Схема приёма: список лекарств с примерным временем.
 class ScheduleScreen extends StatelessWidget {
@@ -83,7 +81,7 @@ class ScheduleScreen extends StatelessWidget {
           ],
           const SizedBox(height: 32),
           Text(
-            'Крест · сборка $buildId',
+            'Крест · $versionLabel',
             textAlign: TextAlign.center,
             style: t.labelSmall,
           ),

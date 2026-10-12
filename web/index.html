@@ -138,6 +138,16 @@
         if (!reg.waiting || !sw.controller) return;
         pwa.updateReady = true;
         bar('pwa-update', true);
+        // Номер новой версии спрашиваем у ожидающего service worker.
+        var ch = new MessageChannel();
+        ch.port1.onmessage = function (e) {
+          var v = e.data && e.data.version;
+          if (v && v.indexOf('__') !== 0) {
+            pwa.updateVersion = v;
+            document.querySelector('#pwa-update span').textContent = 'Доступна версия ' + v.split('+')[0];
+          }
+        };
+        reg.waiting.postMessage({ type: 'GET_BUILD' }, [ch.port2]);
         document.getElementById('pwa-update-btn').onclick = function () {
           reloading = true;
           bar('pwa-update', false);

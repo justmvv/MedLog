@@ -6,7 +6,8 @@
 // ждёт и активируется по кнопке «Обновить» (или при следующем запуске, когда
 // все вкладки закрыты). Страница всегда работает на файлах одной версии.
 
-const BUILD = '__BUILD__';
+const BUILD = '__BUILD__';     // хеш содержимого сборки
+const VERSION = '__VERSION__'; // версия из pubspec.yaml + номер сборки
 const PRECACHE = /*__PRECACHE__*/ ['./', 'index.html', 'manifest.json'];
 
 const PREFIX = 'krest-';
@@ -38,7 +39,10 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('message', (e) => {
   const msg = e.data || {};
   if (msg.type === 'SKIP_WAITING') self.skipWaiting();
-  if (msg.type === 'GET_BUILD') e.source && e.source.postMessage({ type: 'BUILD', build: BUILD });
+  if (msg.type === 'GET_BUILD') {
+    const reply = { type: 'BUILD', build: BUILD, version: VERSION };
+    (e.ports && e.ports[0]) ? e.ports[0].postMessage(reply) : e.source && e.source.postMessage(reply);
+  }
   // Страница присылает файлы, загруженные до того, как SW начал ею управлять
   // (например, выбранный браузером вариант CanvasKit), — докладываем их в кэш.
   if (msg.type === 'CACHE_URLS' && Array.isArray(msg.urls)) {

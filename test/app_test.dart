@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
+import 'package:med_cross/app_version.dart';
 import 'package:med_cross/main.dart';
 import 'package:med_cross/models.dart';
 import 'package:med_cross/store.dart';
@@ -27,6 +28,11 @@ Medication _med(AppStore s, {DateTime? start}) {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('без --dart-define сборка подписана как отладочная', () {
+    expect(appVersion, isEmpty);
+    expect(versionLabel, 'Отладочная сборка');
+  });
 
   test('отметка приёма и сводка дня', () async {
     final s = await _store();
