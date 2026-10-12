@@ -94,7 +94,7 @@ Releasing a new version:
 
 ```bash
 tool/bump_version.sh minor    # patch | minor | major; then describe the changes in CHANGELOG.md
-git commit -am "Version 1.1.0" && git tag v1.1.0 && git push --follow-tags
+git commit -am "Version 1.1.0" && git tag -a v1.1.0 -m "Version 1.1.0" && git push --follow-tags
 ```
 
 A push to `main` deploys the site to GitHub Pages; a `vX.Y.Z` tag creates a

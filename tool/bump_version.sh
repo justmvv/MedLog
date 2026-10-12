@@ -2,7 +2,7 @@
 # Bumps the version in pubspec.yaml and opens a section for it under
 # "[Не выпущено]" (Unreleased) in CHANGELOG.md.
 #   tool/bump_version.sh patch|minor|major
-# Then: git commit -am "Version X.Y.Z" && git tag vX.Y.Z && git push --follow-tags
+# Then: git commit -am "Version X.Y.Z" && git tag -a vX.Y.Z -m "Version X.Y.Z" && git push --follow-tags
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -34,4 +34,4 @@ s = re.sub(r'\[Не выпущено\]: (.*)/compare/v[\d.]+\.\.\.HEAD',
 open(p, 'w', encoding='utf-8').write(s)
 PY
 echo "$name → $next. Describe the changes in CHANGELOG.md, then:"
-echo "  git commit -am \"Version $next\" && git tag v$next && git push --follow-tags"
+echo "  git commit -am \"Version $next\" && git tag -a v$next -m \"Version $next\" && git push --follow-tags"
