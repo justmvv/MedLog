@@ -7,7 +7,7 @@ import '../models.dart';
 import '../store.dart';
 import '../theme.dart';
 
-/// Схема приёма: список лекарств с примерным временем.
+/// Schedule: the list of medications with approximate times.
 class ScheduleScreen extends StatelessWidget {
   const ScheduleScreen({super.key});
 
@@ -81,7 +81,7 @@ class ScheduleScreen extends StatelessWidget {
           ],
           const SizedBox(height: 32),
           Text(
-            'Крест · $versionLabel',
+            'MedLog · $versionLabel',
             textAlign: TextAlign.center,
             style: t.labelSmall,
           ),

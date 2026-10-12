@@ -6,8 +6,6 @@ import '../models.dart';
 import '../theme.dart';
 import 'day_screen.dart';
 
-enum HeatMode { meds, kcal }
-
 class MonthScreen extends StatefulWidget {
   const MonthScreen({super.key});
 
@@ -17,7 +15,6 @@ class MonthScreen extends StatefulWidget {
 
 class _MonthScreenState extends State<MonthScreen> {
   DateTime _month = DateTime(DateTime.now().year, DateTime.now().month);
-  HeatMode _mode = HeatMode.meds;
 
   void _shift(int delta) =>
       setState(() => _month = DateTime(_month.year, _month.month + delta));
@@ -28,7 +25,7 @@ class _MonthScreenState extends State<MonthScreen> {
     final t = Theme.of(context).textTheme;
     final today = dayOf(DateTime.now());
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
-    final lead = _month.weekday - 1; // Пн = 0
+    final lead = _month.weekday - 1; // Monday = 0
     final days = [
       for (var d = 1; d <= daysInMonth; d++)
         DateTime(_month.year, _month.month, d),
@@ -37,18 +34,14 @@ class _MonthScreenState extends State<MonthScreen> {
       for (final d in days)
         if (!d.isAfter(today)) d: store.summary(d),
     };
-    final maxKcal = sums.values.fold(0, (m, s) => s.kcal > m ? s.kcal : m);
 
-    // Сводка месяца
+    // Month summary
     final planned = sums.values.fold(0, (a, s) => a + s.planned);
     final taken = sums.values.fold(0, (a, s) => a + s.taken);
     final perfect = sums.values
         .where((s) => s.planned > 0 && s.taken == s.planned)
         .length;
-    final kcalDays = sums.values.where((s) => s.kcal > 0).toList();
-    final avgKcal = kcalDays.isEmpty
-        ? 0
-        : kcalDays.fold(0, (a, s) => a + s.kcal) ~/ kcalDays.length;
+    final offset = sums.values.fold(0, (a, s) => a + s.offsetMinutes);
     final canForward = _month.isBefore(DateTime(today.year, today.month));
 
     return ListView(
@@ -80,32 +73,6 @@ class _MonthScreenState extends State<MonthScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 10),
-        SegmentedButton<HeatMode>(
-          showSelectedIcon: false,
-          style: SegmentedButton.styleFrom(
-            side: const BorderSide(color: C.line, width: 1.2),
-            selectedBackgroundColor: C.tint,
-            selectedForegroundColor: C.accent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          segments: const [
-            ButtonSegment(
-              value: HeatMode.meds,
-              icon: Icon(Icons.medication_outlined, size: 18),
-              label: Text('Приём лекарств'),
-            ),
-            ButtonSegment(
-              value: HeatMode.kcal,
-              icon: Icon(Icons.restaurant_outlined, size: 18),
-              label: Text('Калории'),
-            ),
-          ],
-          selected: {_mode},
-          onSelectionChanged: (s) => setState(() => _mode = s.first),
-        ),
         const SizedBox(height: 16),
         Row(
           children: [
@@ -130,8 +97,6 @@ class _MonthScreenState extends State<MonthScreen> {
               HeatCell(
                 day: d,
                 summary: sums[d],
-                mode: _mode,
-                maxKcal: maxKcal,
                 isToday: d == today,
                 onTap: d.isAfter(today)
                     ? null
@@ -142,7 +107,7 @@ class _MonthScreenState extends State<MonthScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        _Legend(mode: _mode, maxKcal: maxKcal),
+        const _Legend(),
         const SectionLabel('Итоги месяца'),
         GridView.count(
           crossAxisCount: 2,
@@ -157,8 +122,8 @@ class _MonthScreenState extends State<MonthScreen> {
             _Stat(value: '${planned - taken}', label: 'приёмов пропущено'),
             _Stat(value: '$perfect', label: 'дней без пропусков'),
             _Stat(
-              value: avgKcal == 0 ? '—' : '$avgKcal',
-              label: 'ккал в день, среднее',
+              value: taken == 0 ? '—' : '±${offset ~/ taken} мин',
+              label: 'от планового времени',
             ),
           ],
         ),
@@ -167,41 +132,30 @@ class _MonthScreenState extends State<MonthScreen> {
   }
 }
 
-/// Ячейка тепловой карты. Интенсивность — плотность и цвет штриховки,
-/// 100 % — сплошная заливка.
+/// Heatmap cell. Intensity is shown by hatching density and color;
+/// 100% is a solid fill.
 class HeatCell extends StatelessWidget {
   const HeatCell({
     super.key,
     required this.day,
     required this.summary,
-    required this.mode,
-    required this.maxKcal,
     required this.isToday,
     this.onTap,
   });
 
   final DateTime day;
   final DaySummary? summary;
-  final HeatMode mode;
-  final int maxKcal;
   final bool isToday;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final s = summary;
-    // value: null — нет данных, 0..1 — интенсивность
-    double? value;
-    if (s != null) {
-      if (mode == HeatMode.meds) {
-        value = s.adherence;
-      } else {
-        value = s.kcal == 0 || maxKcal == 0 ? null : s.kcal / maxKcal;
-      }
-    }
+    // value: null means no data, 0..1 is the intensity
+    final value = s?.adherence;
     final future = s == null;
-    final full = value != null && value >= 0.999 && mode == HeatMode.meds;
-    final missedAll = mode == HeatMode.meds && value == 0;
+    final full = value != null && value >= 0.999;
+    final missedAll = value == 0;
 
     Color border;
     if (future) {
@@ -273,11 +227,11 @@ class HeatCell extends StatelessWidget {
     final s = summary;
     final date = DateFormat('d MMMM').format(day);
     if (s == null) return date;
-    return '$date\nприёмы: ${s.taken}/${s.planned}\nеда: ${s.meals}, ${s.kcal} ккал';
+    return '$date\nприёмы: ${s.taken}/${s.planned}';
   }
 }
 
-/// Пропущены все приёмы — тонкий косой крест.
+/// All doses missed: a thin diagonal cross.
 class _CrossPainter extends CustomPainter {
   _CrossPainter({this.dy = 4});
   final double dy;
@@ -305,9 +259,7 @@ class _CrossPainter extends CustomPainter {
 }
 
 class _Legend extends StatelessWidget {
-  const _Legend({required this.mode, required this.maxKcal});
-  final HeatMode mode;
-  final int maxKcal;
+  const _Legend();
 
   @override
   Widget build(BuildContext context) {
@@ -338,25 +290,16 @@ class _Legend extends StatelessWidget {
                         ),
                 ),
         );
-    if (mode == HeatMode.meds) {
-      return Row(
-        children: [
-          swatch(0, cross: true),
-          Text(' нет  ', style: t),
-          swatch(0.25),
-          swatch(0.5),
-          swatch(0.8),
-          Text(' частично  ', style: t),
-          swatch(1, full: true),
-          Text(' всё принято', style: t),
-        ],
-      );
-    }
     return Row(
       children: [
-        Text('меньше ', style: t),
-        for (final v in const [0.1, 0.35, 0.6, 0.85, 1.0]) swatch(v),
-        Text(' больше${maxKcal > 0 ? ' (макс. $maxKcal ккал)' : ''}', style: t),
+        swatch(0, cross: true),
+        Text(' нет  ', style: t),
+        swatch(0.25),
+        swatch(0.5),
+        swatch(0.8),
+        Text(' частично  ', style: t),
+        swatch(1, full: true),
+        Text(' всё принято', style: t),
       ],
     );
   }

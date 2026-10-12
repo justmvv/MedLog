@@ -1,27 +1,29 @@
-// Service worker PWA «Крест».
+// Service worker of the MedLog PWA.
 //
-// Каждая сборка — отдельная атомарная версия: tool/build_web.sh подставляет
-// BUILD и список файлов PRECACHE, поэтому sw.js меняется от сборки к сборке,
-// и браузер видит обновление. Новая версия скачивается целиком в свой кэш,
-// ждёт и активируется по кнопке «Обновить» (или при следующем запуске, когда
-// все вкладки закрыты). Страница всегда работает на файлах одной версии.
+// Every build is a separate, atomic version: tool/build_web.sh fills in BUILD
+// and the PRECACHE file list, so sw.js changes from build to build and the
+// browser notices the update. The new version is downloaded into its own cache
+// as a whole, waits, and is activated by the "Обновить" (Update) button, or on
+// the next launch once all tabs are closed. A page always runs on the files of
+// a single version.
 
-const BUILD = '__BUILD__';     // хеш содержимого сборки
-const VERSION = '__VERSION__'; // версия из pubspec.yaml + номер сборки
+const BUILD = '__BUILD__';     // hash of the build contents
+const VERSION = '__VERSION__'; // version from pubspec.yaml + build number
 const PRECACHE = /*__PRECACHE__*/ ['./', 'index.html', 'manifest.json'];
 
-const PREFIX = 'krest-';
+const PREFIX = 'medlog-';
+const LEGACY_PREFIX = 'krest-'; // caches of versions before the rename
 const CACHE = PREFIX + BUILD;
-const FONTS = PREFIX + 'fonts'; // шрифты Google не зависят от сборки
+const FONTS = PREFIX + 'fonts'; // Google fonts don't depend on the build
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE).then((c) =>
-      // cache: 'reload' — мимо HTTP-кэша, чтобы не захватить файлы старой сборки.
+      // cache: 'reload' bypasses the HTTP cache so no files of an older build get in.
       c.addAll(PRECACHE.map((u) => new Request(u, { cache: 'reload' })))
     )
   );
-  // Без skipWaiting: обновление применяется по запросу пользователя.
+  // No skipWaiting: the update is applied when the user asks for it.
 });
 
 self.addEventListener('activate', (e) => {
@@ -29,7 +31,8 @@ self.addEventListener('activate', (e) => {
     caches.keys()
       .then((keys) => Promise.all(
         keys
-          .filter((k) => k.startsWith(PREFIX) && k !== CACHE && k !== FONTS)
+          .filter((k) => k.startsWith(LEGACY_PREFIX) ||
+            (k.startsWith(PREFIX) && k !== CACHE && k !== FONTS))
           .map((k) => caches.delete(k))
       ))
       .then(() => self.clients.claim())
@@ -43,8 +46,8 @@ self.addEventListener('message', (e) => {
     const reply = { type: 'BUILD', build: BUILD, version: VERSION };
     (e.ports && e.ports[0]) ? e.ports[0].postMessage(reply) : e.source && e.source.postMessage(reply);
   }
-  // Страница присылает файлы, загруженные до того, как SW начал ею управлять
-  // (например, выбранный браузером вариант CanvasKit), — докладываем их в кэш.
+  // The page sends files it loaded before the SW took control of it (e.g. the
+  // CanvasKit variant the browser picked); add them to the cache.
   if (msg.type === 'CACHE_URLS' && Array.isArray(msg.urls)) {
     e.waitUntil(Promise.all(msg.urls.map(async (u) => {
       const font = new URL(u).hostname === 'fonts.gstatic.com';
@@ -66,11 +69,11 @@ self.addEventListener('fetch', (e) => {
   }
   if (url.origin !== self.location.origin) return;
 
-  // Сам sw.js и version.json всегда из сети.
+  // sw.js itself and version.json always come from the network.
   if (url.pathname.endsWith('/sw.js') || url.pathname.endsWith('/version.json')) return;
 
   if (req.mode === 'navigate') {
-    // Оболочка приложения: index.html текущей версии, офлайн тоже.
+    // App shell: index.html of the current version, offline too.
     e.respondWith(
       caches.open(CACHE)
         .then((c) => c.match('index.html'))

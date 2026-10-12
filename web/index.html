@@ -4,19 +4,19 @@
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
-  <meta name="description" content="График приёма лекарств, отметки, время еды и калории, тепловая карта месяца">
+  <meta name="description" content="График приёма лекарств, отметки о приёме, тепловая карта месяца">
   <meta name="theme-color" content="#F5F9F0">
 
   <!-- iOS -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <meta name="apple-mobile-web-app-title" content="Крест">
+  <meta name="apple-mobile-web-app-title" content="MedLog">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 
   <link rel="icon" type="image/png" href="favicon.png"/>
   <link rel="manifest" href="manifest.json">
-  <title>Крест</title>
+  <title>MedLog</title>
 
   <style>
     html, body { margin: 0; height: 100%; background: #F5F9F0; }
@@ -26,7 +26,7 @@
     }
     #splash img { width: 88px; height: 88px; }
 
-    /* Плашки «Доступна новая версия» и «Установить» — поверх Flutter. */
+    /* "New version available" and "Install" bars, shown above Flutter. */
     .pwa-bar {
       position: fixed; z-index: 1000; left: 50%; transform: translateX(-50%);
       top: calc(env(safe-area-inset-top, 0px) + 10px);
@@ -54,7 +54,7 @@
     <button class="ghost" data-close aria-label="Позже">✕</button>
   </div>
   <div id="pwa-install" class="pwa-bar">
-    <span>Установить «Крест» на устройство?</span>
+    <span>Установить MedLog на устройство?</span>
     <button id="pwa-install-btn">Установить</button>
     <button class="ghost" data-close aria-label="Не сейчас">✕</button>
   </div>
@@ -65,14 +65,14 @@
       if (s) { s.style.opacity = 0; setTimeout(function () { s.remove(); }, 300); }
     });
 
-    // Состояние PWA — для отладки: window.__pwa
+    // PWA state, for debugging: window.__pwa
     var pwa = window.__pwa = { installable: false, installed: false, updateReady: false };
     function bar(id, on) { document.getElementById(id).classList.toggle('show', on); }
     document.querySelectorAll('.pwa-bar [data-close]').forEach(function (b) {
       b.onclick = function () { b.parentElement.classList.remove('show'); };
     });
 
-    // ── Установка (Chrome / Edge / Android) ─────────────────────
+    // ── Install (Chrome / Edge / Android) ───────────────────────
     var deferredPrompt = null;
     window.addEventListener('beforeinstallprompt', function (e) {
       e.preventDefault();
@@ -86,7 +86,7 @@
       deferredPrompt.prompt();
       deferredPrompt.userChoice.finally(function () { deferredPrompt = null; });
     };
-    // iOS Safari не умеет предлагать установку сам — показываем подсказку один раз.
+    // iOS Safari can't offer installation itself, so show a one-time hint.
     (function () {
       var ua = navigator.userAgent;
       var ios = !/android/i.test(ua) && (/iphone|ipad|ipod/i.test(ua) ||
@@ -111,17 +111,17 @@
       bar('pwa-install', false);
     });
 
-    // ── Service worker и обновления ─────────────────────────────
+    // ── Service worker and updates ──────────────────────────────
     if ('serviceWorker' in navigator) {
       var sw = navigator.serviceWorker;
       var reloading = false;
 
-      // Новая версия активирована по нашей кнопке — перезагружаемся на неё.
+      // The new version was activated by our button: reload onto it.
       sw.addEventListener('controllerchange', function () {
         if (reloading) location.reload();
       });
 
-      // Файлы, скачанные до того, как SW взял страницу под контроль, — в кэш.
+      // Cache the files downloaded before the SW took control of the page.
       function cacheLoaded() {
         if (!sw.controller) return;
         var urls = performance.getEntriesByType('resource')
@@ -134,11 +134,11 @@
       }
 
       function waitingFound(reg) {
-        // Первая установка (нет контроллера) — это не обновление.
+        // The first install (no controller yet) is not an update.
         if (!reg.waiting || !sw.controller) return;
         pwa.updateReady = true;
         bar('pwa-update', true);
-        // Номер новой версии спрашиваем у ожидающего service worker.
+        // Ask the waiting service worker for the new version number.
         var ch = new MessageChannel();
         ch.port1.onmessage = function (e) {
           var v = e.data && e.data.version;
@@ -165,7 +165,7 @@
               if (nw.state === 'installed') waitingFound(reg);
             });
           });
-          // Проверяем обновления при возврате в приложение и раз в 30 минут.
+          // Check for updates when returning to the app and every 30 minutes.
           document.addEventListener('visibilitychange', function () {
             if (document.visibilityState === 'visible') reg.update().catch(function () {});
           });

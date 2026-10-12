@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
-# Релизная сборка PWA.
-#   tool/build_web.sh [аргументы flutter build web, например --base-href /MedLog/]
+# Release PWA build.
+#   tool/build_web.sh [flutter build web args, e.g. --base-href /MedLog/]
 #
-# Версия: название — из pubspec.yaml (version: X.Y.Z+N), номер сборки — из
-# $BUILD_NUMBER (в CI — номер запуска GitHub Actions), иначе из pubspec;
-# коммит — $COMMIT или текущий HEAD. Всё вкомпилировано в приложение
-# (виден внизу экрана «Схема») и записано в version.json.
+# Version: the name comes from pubspec.yaml (version: X.Y.Z+N), the build number
+# from $BUILD_NUMBER (in CI, the GitHub Actions run number) or else from
+# pubspec, the commit from $COMMIT or the current HEAD. All of it is compiled
+# into the app (shown at the bottom of the "Схема" screen) and written to
+# version.json.
 #
-# BUILD — хеш содержимого сборки. Он попадает в sw.js (вместе со списком файлов
-# для офлайн-кэша), поэтому браузер видит новую версию только когда код
-# действительно изменился. Скрипты получают уникальные URL (?v=BUILD), чтобы
-# memory-cache браузера не подмешал файл из прошлой версии.
+# BUILD is a hash of the build contents. It goes into sw.js (together with the
+# list of files for the offline cache), so the browser sees a new version only
+# when the code has actually changed. Scripts get unique URLs (?v=BUILD) so the
+# browser's memory cache can't mix in a file from a previous version.
 #
-# id манифеста = base href: id разрешается относительно корня домена, и
-# относительный "./" на <user>.github.io/<repo>/ занял бы весь домен.
+# The manifest id is set to the base href: an id is resolved against the
+# origin, so a relative "./" on <user>.github.io/<repo>/ would claim the whole
+# origin.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT=build/web
@@ -38,7 +40,7 @@ flutter build web --release --no-web-resources-cdn \
   --dart-define=COMMIT="$COMMIT" \
   "$@"
 
-rm -f "$OUT/flutter_service_worker.js"   # используется собственный web/sw.js
+rm -f "$OUT/flutter_service_worker.js"   # our own web/sw.js is used instead
 
 BUILD=$( (cat "$OUT/main.dart.js" "$OUT/flutter_bootstrap.js" "$OUT/index.html" "$OUT/manifest.json"
           find "$OUT/assets" "$OUT/icons" -type f | LC_ALL=C sort | xargs cat) | shasum -a 256 | cut -c1-12)
@@ -51,7 +53,7 @@ rm -f "$OUT"/*.bak
 python3 - "$OUT" "$BUILD" "$VERSION_NAME+$BUILD_NUMBER" "$COMMIT" <<'PY'
 import json, os, sys
 out, build, version, commit = sys.argv[1:]
-skip_dirs = {'canvaskit'}    # нужный браузеру вариант CanvasKit докэшируется по факту загрузки
+skip_dirs = {'canvaskit'}    # the CanvasKit variant the browser needs is cached once it's loaded
 skip_files = {'sw.js', 'version.json', '.last_build_id', 'NOTICES'}
 files = ['./']
 for d, dirs, names in os.walk(out):
@@ -74,11 +76,11 @@ v_path = os.path.join(out, 'version.json')
 meta = json.load(open(v_path))
 meta.update(build=build, commit=commit)
 json.dump(meta, open(v_path, 'w'), ensure_ascii=False)
-print(f'precache: {len(files)} файлов')
+print(f'precache: {len(files)} files')
 PY
 
 grep -q "buildVersion = '$BUILD'" "$OUT/flutter_bootstrap.js"
 grep -q "flutter_bootstrap.js?v=$BUILD" "$OUT/index.html"
 grep -q "\"id\": \"$BASE_HREF\"" "$OUT/manifest.json"
 grep -q "const BUILD = \"$BUILD\"" "$OUT/sw.js"
-echo "Версия $VERSION_NAME+$BUILD_NUMBER, коммит ${COMMIT:0:7}, сборка $BUILD, base href $BASE_HREF"
+echo "Version $VERSION_NAME+$BUILD_NUMBER, commit ${COMMIT:0:7}, build $BUILD, base href $BASE_HREF"

@@ -14,10 +14,10 @@ Future<void> main() async {
   Intl.defaultLocale = 'ru';
   await initializeDateFormatting('ru');
   final store = await AppStore.load();
-  runApp(StoreScope(store: store, child: const MedCrossApp()));
+  runApp(StoreScope(store: store, child: const MedLogApp()));
 }
 
-/// Доступ к хранилищу из любого виджета: `StoreScope.of(context)`.
+/// Gives any widget access to the store: `StoreScope.of(context)`.
 class StoreScope extends InheritedNotifier<AppStore> {
   const StoreScope({super.key, required AppStore store, required super.child})
     : super(notifier: store);
@@ -26,13 +26,13 @@ class StoreScope extends InheritedNotifier<AppStore> {
       context.dependOnInheritedWidgetOfExactType<StoreScope>()!.notifier!;
 }
 
-class MedCrossApp extends StatelessWidget {
-  const MedCrossApp({super.key});
+class MedLogApp extends StatelessWidget {
+  const MedLogApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Крест',
+      title: 'MedLog',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
       locale: const Locale('ru'),

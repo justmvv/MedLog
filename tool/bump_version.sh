@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Повышает версию в pubspec.yaml и переносит раздел «Не выпущено» в CHANGELOG.md.
+# Bumps the version in pubspec.yaml and opens a section for it under
+# "[Не выпущено]" (Unreleased) in CHANGELOG.md.
 #   tool/bump_version.sh patch|minor|major
-# После проверки: git commit -am "Версия X.Y.Z" && git tag vX.Y.Z && git push --follow-tags
+# Then: git commit -am "Version X.Y.Z" && git tag vX.Y.Z && git push --follow-tags
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 part=${1:-}
-case "$part" in patch|minor|major) ;; *) echo "Использование: $0 patch|minor|major" >&2; exit 1 ;; esac
+case "$part" in patch|minor|major) ;; *) echo "Usage: $0 patch|minor|major" >&2; exit 1 ;; esac
 
 current=$(grep -E '^version:' pubspec.yaml | awk '{print $2}')
 name=${current%%+*}
@@ -32,5 +33,5 @@ s = re.sub(r'\[Не выпущено\]: (.*)/compare/v[\d.]+\.\.\.HEAD',
                      f'[{nxt}]: {m.group(1)}/compare/v{prev}...v{nxt}', s, count=1)
 open(p, 'w', encoding='utf-8').write(s)
 PY
-echo "$name → $next. Допишите изменения в CHANGELOG.md, затем:"
-echo "  git commit -am \"Версия $next\" && git tag v$next && git push --follow-tags"
+echo "$name → $next. Describe the changes in CHANGELOG.md, then:"
+echo "  git commit -am \"Version $next\" && git tag v$next && git push --follow-tags"

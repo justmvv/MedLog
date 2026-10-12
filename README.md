@@ -1,123 +1,127 @@
-# Крест — приём лекарств и питание (Flutter → PWA)
+# MedLog: medication log (Flutter → PWA)
 
-Офлайн-приложение: схема регулярного приёма лекарств с примерным временем,
-отметки «галочкой», фиксация времени еды с калориями из локального
-справочника, тепловая карта месяца и детали дня.
+An offline app for a regular medication schedule with approximate times:
+check off each dose, see a monthly heatmap of how doses were taken and drill
+down into any day. The UI is in Russian.
 
-[Открыть приложение](https://justmvv.github.io/MedLog/) · [Журнал изменений](CHANGELOG.md) · [Лицензия MIT](LICENSE)
+[Open the app](https://justmvv.github.io/MedLog/) · [Changelog](CHANGELOG.md) · [MIT License](LICENSE)
 
-> Приложение — личный дневник, а не медицинское изделие: оно не напоминает
-> о приёме и не заменяет назначения врача.
+> This is a personal log, not a medical device: it doesn't send reminders and
+> doesn't replace a doctor's prescriptions.
 
-## Сценарии
+## Scenarios
 
-1. **Отметить приём** — открыть приложение → вкладка «Сегодня» → тап по строке
-   лекарства. Фиксируется фактическое время; долгое нажатие или ✎ — поправить время.
-2. **Посмотреть месяц** — вкладка «Месяц»: тепловая карта (режимы «Приём лекарств» /
-   «Калории») → тап по дню → хронология дня: приёмы лекарств и еда с составом и ккал.
+1. **Take a dose**: open the app → "Сегодня" (Today) tab → tap a medication
+   row. The actual time is recorded; long-press or ✎ corrects it.
+2. **Review the month**: the "Месяц" (Month) tab shows a heatmap of doses
+   taken, with month totals: share of doses taken, missed doses, days without
+   misses and the average offset from the planned time. Tap a day to see its
+   timeline of doses with planned and actual times.
 
-Еда: кнопка «Еда» → время (по умолчанию «сейчас») → поиск по справочнику →
-граммы. Можно сохранить и только время. Своих продуктов можно добавить в справочник.
+## Data
 
-## Данные
+- Everything is stored on the device (in the PWA, `localStorage` via
+  `shared_preferences`); there is no server.
+- Changing dose times doesn't rewrite history: the old version of the schedule
+  is closed as of today and the new one starts today. "Завершить" (Stop)
+  removes a medication from the daily list while keeping past days.
 
-- Всё хранится локально (в PWA — `localStorage` через `shared_preferences`), сервера нет.
-- Справочник калорий: [assets/foods.json](assets/foods.json) (≈140 продуктов, ккал/100 г
-  и типичная порция) + пользовательские продукты.
-- Изменение времени в схеме не переписывает историю: старая версия схемы
-  закрывается сегодняшним днём, новая действует с сегодня. «Завершить» убирает
-  лекарство из ежедневного списка, прошлые дни остаются.
-
-## Сборка PWA
+## Building the PWA
 
 ```bash
 tool/build_web.sh
 ```
 
-Скрипт вызывает `flutter build web --release --no-web-resources-cdn`, вкомпилирует
-версию (см. «Версии»), вписывает хеш содержимого сборки и список файлов в
-`build/web/sw.js`, даёт скриптам уникальные URL и выставляет `id` манифеста.
-Дополнительные флаги пробрасываются, например `tool/build_web.sh --base-href /MedLog/`.
+The script runs `flutter build web --release --no-web-resources-cdn`, compiles
+in the version (see [Versions](#versions)), writes the build content hash and the
+file list into `build/web/sw.js`, gives scripts unique URLs and sets the
+manifest `id`. Extra flags are passed through, e.g.
+`tool/build_web.sh --base-href /MedLog/`.
 
-Результат — `build/web/`: выкладывать на любой статический HTTPS-хостинг
-**целиком**, заменяя предыдущую версию.
+The result is `build/web/`: deploy it to any static HTTPS host **as a whole**,
+replacing the previous version.
 
-### Установка
-
-- Chrome / Edge / Android — плашка «Установить» (событие `beforeinstallprompt`),
-  либо пункт «Установить приложение» в меню браузера.
-- iOS / iPadOS Safari — подсказка «Поделиться → На экран „Домой“» (показывается один раз).
-
-### Офлайн и обновления
-
-Собственный service worker [web/sw.js](web/sw.js), встроенный
-`flutter_service_worker.js` отключён ([web/flutter_bootstrap.js](web/flutter_bootstrap.js)).
-
-- Каждая сборка — атомарная версия в своём кэше `krest-<хеш сборки>`: страница
-  всегда работает на файлах одной версии, старт мгновенный и офлайн.
-- Уже при первом визите в кэш попадает всё нужное, включая вариант CanvasKit,
-  который выбрал браузер, и шрифты Google (кириллица).
-- Новая версия ищется при каждом открытии, при возврате в приложение и раз
-  в 30 минут. Она скачивается в фоне, затем появляется плашка
-  «Доступна новая версия → Обновить». Если её проигнорировать, новая версия
-  включится при следующем холодном запуске.
-- Данные пользователя (`localStorage`) при обновлении не затрагиваются.
-
-Заголовки на хостинге: `sw.js` браузер и так проверяет мимо HTTP-кэша
-(`updateViaCache: 'none'`), но лучше отдавать `sw.js` и `index.html` с
-`Cache-Control: no-cache`.
-
-Локальный просмотр сборки:
+Preview a build locally:
 
 ```bash
 python3 -m http.server 8765 --directory build/web
 ```
 
-## Версии
+### Installing
 
-Версия задаётся полем `version: X.Y.Z+N` в [pubspec.yaml](pubspec.yaml) и
-следует [семантическому версионированию](https://semver.org/lang/ru/).
-`tool/build_web.sh` вкомпилирует в приложение:
+- Chrome / Edge / Android: the "Установить" (Install) bar (the
+  `beforeinstallprompt` event), or "Install app" in the browser menu.
+- iOS / iPadOS Safari: a one-time hint to use Share → Add to Home Screen.
 
-- название версии — `X.Y.Z` из pubspec;
-- номер сборки — `$BUILD_NUMBER` (в CI — номер запуска GitHub Actions),
-  локально — `N` из pubspec;
-- коммит — `$COMMIT` или текущий `HEAD`.
+### Offline and updates
 
-Версия видна внизу экрана «Схема» («Версия 1.0.0 · сборка 12 (a1b2c3d)»),
-записана в `version.json` и в `sw.js`; плашка обновления показывает номер
-новой версии. Отладочная сборка (`flutter run`) подписана «Отладочная сборка».
+Offline caching is done by our own service worker, [web/sw.js](web/sw.js); the
+built-in `flutter_service_worker.js` is disabled in
+[web/flutter_bootstrap.js](web/flutter_bootstrap.js).
 
-Выпуск новой версии:
+- Every build is an atomic version in its own `medlog-<build hash>` cache: a
+  page always runs on the files of a single version, starts instantly and
+  works offline.
+- Everything needed goes into the cache on the very first visit, including the
+  CanvasKit variant the browser picked and the Google fonts (Cyrillic).
+- A new version is looked for on every launch, when returning to the app and
+  every 30 minutes. It downloads in the background, then a "Доступна версия
+  X.Y.Z" (Version X.Y.Z available) bar with an "Обновить" (Update) button
+  appears. If ignored, the new version takes over on the next cold start.
+- User data (`localStorage`) is not touched by updates.
+
+Hosting headers: browsers already check `sw.js` bypassing the HTTP cache
+(`updateViaCache: 'none'`), but it's best to serve `sw.js` and `index.html` with
+`Cache-Control: no-cache`.
+
+## Versions
+
+The version is the `version: X.Y.Z+N` field in [pubspec.yaml](pubspec.yaml)
+and follows [Semantic Versioning](https://semver.org/). `tool/build_web.sh`
+compiles into the app:
+
+- the version name: `X.Y.Z` from pubspec;
+- the build number: `$BUILD_NUMBER` (in CI, the GitHub Actions run number),
+  or `N` from pubspec for local builds;
+- the commit: `$COMMIT` or the current `HEAD`.
+
+The version is shown at the bottom of the "Схема" (Schedule) screen, e.g.
+"Версия 1.0.0 · сборка 12 (a1b2c3d)", and is written to `version.json` and
+`sw.js`; the update bar shows the new version number. Debug builds
+(`flutter run`) are labeled "Отладочная сборка".
+
+Releasing a new version:
 
 ```bash
-tool/bump_version.sh minor    # patch | minor | major; допишите CHANGELOG.md
-git commit -am "Версия 1.1.0" && git tag v1.1.0 && git push --follow-tags
+tool/bump_version.sh minor    # patch | minor | major; then describe the changes in CHANGELOG.md
+git commit -am "Version 1.1.0" && git tag v1.1.0 && git push --follow-tags
 ```
 
-Пуш в `main` публикует сайт на GitHub Pages, тег `vX.Y.Z` создаёт релиз
-GitHub с архивом сборки ([.github/workflows/deploy.yml](.github/workflows/deploy.yml)).
-Для публикации в настройках репозитория: Settings → Pages → Source: «GitHub Actions».
+A push to `main` deploys the site to GitHub Pages; a `vX.Y.Z` tag creates a
+GitHub release with the zipped build
+([.github/workflows/deploy.yml](.github/workflows/deploy.yml)). To enable
+deployment, set Settings → Pages → Source to "GitHub Actions".
 
-## Иконка и палитра
+## Icon and palette
 
-Иконка — гранёный (low-poly) крест: левая половина травяная зелёная, правая —
-насыщенная синяя, со светлыми гранями и тёмным контуром, в стиле иконки
-calorie_cam. Скрипт [tool/make_icons.py](tool/make_icons.py) (Pillow) генерирует
-все размеры PWA (включая maskable и apple-touch-icon), логотип для заставки и
-`assets/logo.png` для шапок экранов.
+The icon is a faceted (low-poly) cross: the left half herb green, the right half
+saturated blue, with light facet lines and a dark outline, in the style of the
+calorie_cam icon. [tool/make_icons.py](tool/make_icons.py) (Pillow) renders all
+PWA sizes (including maskable and apple-touch-icon), the splash logo and
+`assets/logo.png` used in the screen headers.
 
-Палитра тоже из calorie_cam: светлая трава → зелень → насыщенный синий
-(`C` в [lib/theme.dart](lib/theme.dart)); той же шкалой окрашена тепловая карта.
+The palette comes from calorie_cam too: light herb → green → saturated blue
+(`C` in [lib/theme.dart](lib/theme.dart)); the heatmap uses the same scale.
 
-## Структура
+## Project structure
 
-- `lib/models.dart` — лекарства, отметки, еда, сводки дня
-- `lib/store.dart` — состояние и локальное хранение
-- `lib/theme.dart` — палитра, штриховка, «рукописный» чек-бокс, логотип
-- `lib/screens/` — «Сегодня», «Месяц» (тепловая карта), день, схема, редактор еды
-- `test/app_test.dart` — тесты логики и открытия редактора
+- `lib/models.dart`: medications, intakes, day summaries
+- `lib/store.dart`: app state and local storage
+- `lib/app_version.dart`: version compiled in at build time
+- `lib/theme.dart`: palette, hatching, hand-drawn checkbox, logo
+- `lib/screens/`: Today, Month (heatmap), day details, schedule
+- `test/app_test.dart`: logic tests and an editor smoke test
 
-## Лицензия
+## License
 
 [MIT](LICENSE) © 2026 Vasilii Morozov

@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import '../main.dart';
 import '../theme.dart';
 import '../widgets.dart';
-import 'meal_editor.dart';
 
 class TodayScreen extends StatefulWidget {
   const TodayScreen({super.key});
@@ -21,7 +20,7 @@ class _TodayScreenState extends State<TodayScreen> {
   @override
   void initState() {
     super.initState();
-    // Обновляем «просрочено» и смену дня.
+    // Refresh the "overdue" state and the day change.
     _tick = Timer.periodic(const Duration(minutes: 1), (_) => setState(() {}));
   }
 
@@ -36,19 +35,12 @@ class _TodayScreenState extends State<TodayScreen> {
     final store = StoreScope.of(context);
     final now = DateTime.now();
     final slots = store.slotsFor(now);
-    final meals = store.mealsFor(now);
     final taken = slots.where((s) => s.taken).length;
-    final kcal = meals.fold(0, (s, m) => s + m.kcal);
     final t = Theme.of(context).textTheme;
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => openMealEditor(context),
-        icon: const Icon(Icons.restaurant_outlined),
-        label: const Text('Еда'),
-      ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -84,9 +76,6 @@ class _TodayScreenState extends State<TodayScreen> {
                 ),
                 const SizedBox(width: 6),
                 Text('приёмов', style: t.bodySmall),
-                const Spacer(),
-                if (meals.isNotEmpty)
-                  Text('$kcal ккал · ${meals.length} еда', style: t.bodySmall),
               ],
             ),
             const SizedBox(height: 6),
@@ -100,18 +89,6 @@ class _TodayScreenState extends State<TodayScreen> {
             )
           else
             for (final s in slots) DoseTile(slot: s),
-          const SectionLabel('Еда'),
-          if (meals.isEmpty)
-            HatchEmpty(
-              text: 'Сегодня еда ещё не отмечена',
-              action: OutlinedButton.icon(
-                onPressed: () => store.upsertMeal(quickMeal()),
-                icon: const Icon(Icons.access_time, size: 18),
-                label: const Text('Отметить время еды сейчас'),
-              ),
-            )
-          else
-            for (final m in meals.reversed) MealTile(meal: m),
         ],
       ),
     );

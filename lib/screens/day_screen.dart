@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../main.dart';
-import '../models.dart';
 import '../theme.dart';
 import '../widgets.dart';
-import 'meal_editor.dart';
 
-/// Детали дня: сводка + хронология приёмов лекарств и еды.
+/// Day details: summary plus a timeline of doses.
 class DayScreen extends StatelessWidget {
   const DayScreen({super.key, required this.day});
   final DateTime day;
@@ -17,10 +15,9 @@ class DayScreen extends StatelessWidget {
     final store = StoreScope.of(context);
     final t = Theme.of(context).textTheme;
     final slots = store.slotsFor(day);
-    final meals = store.mealsFor(day);
     final s = store.summary(day);
 
-    // Единая лента событий по времени.
+    // Doses ordered by the actual time (planned time if not taken).
     final events = <({int minute, Widget child})>[
       for (final sl in slots)
         (
@@ -29,25 +26,15 @@ class DayScreen extends StatelessWidget {
               : sl.intake!.takenAt.hour * 60 + sl.intake!.takenAt.minute,
           child: DoseTile(slot: sl),
         ),
-      for (final m in meals)
-        (
-          minute: m.at.hour * 60 + m.at.minute,
-          child: MealTile(meal: m, expanded: true),
-        ),
     ]..sort((a, b) => a.minute.compareTo(b.minute));
 
     return Scaffold(
       appBar: AppBar(title: Text(DateFormat('d MMMM, EEEE').format(day))),
-      floatingActionButton: FloatingActionButton.small(
-        tooltip: 'Добавить еду',
-        onPressed: () => openMealEditor(context, day: day),
-        child: const Icon(Icons.restaurant_outlined),
-      ),
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 80),
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
             children: [
               Row(
                 children: [
@@ -57,8 +44,13 @@ class DayScreen extends StatelessWidget {
                         : '${slots.where((x) => x.taken).length}/${slots.length}',
                     label: 'приёмов',
                   ),
-                  _Big(value: '${s.meals}', label: 'раз ели'),
-                  _Big(value: '${s.kcal}', label: 'ккал'),
+                  _Big(value: '${s.planned - s.taken}', label: 'пропущено'),
+                  _Big(
+                    value: s.taken == 0
+                        ? '—'
+                        : '±${s.offsetMinutes ~/ s.taken}',
+                    label: 'мин от плана',
+                  ),
                 ],
               ),
               if (slots.isNotEmpty) ...[
@@ -66,10 +58,6 @@ class DayScreen extends StatelessWidget {
                 HatchProgress(
                   value: slots.where((x) => x.taken).length / slots.length,
                 ),
-              ],
-              if (meals.length > 1) ...[
-                const SizedBox(height: 10),
-                Text(_gaps(meals), style: t.bodySmall),
               ],
               const SectionLabel('Хронология'),
               if (events.isEmpty)
@@ -91,14 +79,6 @@ class DayScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  static String _gaps(List<Meal> meals) {
-    final first = meals.first.at, last = meals.last.at;
-    final window = last.difference(first);
-    final hm = DateFormat.Hm();
-    return 'Окно питания: ${hm.format(first)}–${hm.format(last)} '
-        '(${window.inHours} ч ${window.inMinutes % 60} мин)';
   }
 }
 

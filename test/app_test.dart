@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
-import 'package:med_cross/app_version.dart';
-import 'package:med_cross/main.dart';
-import 'package:med_cross/models.dart';
-import 'package:med_cross/store.dart';
+import 'package:medlog/app_version.dart';
+import 'package:medlog/main.dart';
+import 'package:medlog/models.dart';
+import 'package:medlog/store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<AppStore> _store() async {
@@ -29,12 +29,12 @@ Medication _med(AppStore s, {DateTime? start}) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('без --dart-define сборка подписана как отладочная', () {
+  test('without --dart-define the build is labeled as debug', () {
     expect(appVersion, isEmpty);
     expect(versionLabel, 'Отладочная сборка');
   });
 
-  test('отметка приёма и сводка дня', () async {
+  test('checking off a dose and the day summary', () async {
     final s = await _store();
     _med(s);
     final yesterday = dayOf(DateTime.now()).subtract(const Duration(days: 1));
@@ -52,7 +52,7 @@ void main() {
     expect(s.summary(yesterday).taken, 0);
   });
 
-  test('смена времени не искажает прошлые дни', () async {
+  test('changing times does not rewrite past days', () async {
     final s = await _store();
     final m = _med(s);
     final past = dayOf(DateTime.now()).subtract(const Duration(days: 3));
@@ -63,7 +63,7 @@ void main() {
     expect(s.slotsFor(DateTime.now()).map((e) => e.slot), [540]);
   });
 
-  test('завершение схемы сохраняет историю', () async {
+  test('stopping a schedule keeps its history', () async {
     final s = await _store();
     final m = _med(s);
     s.stopMed(m);
@@ -72,22 +72,25 @@ void main() {
     expect(s.slotsFor(past), hasLength(2));
   });
 
-  test('поиск по справочнику калорий', () async {
+  test('day summary measures the offset from the planned time', () async {
     final s = await _store();
-    expect(s.searchFoods('греч').first.name, 'Гречка варёная');
-    final meal = Meal(
-      id: 'x',
-      at: DateTime.now(),
-      items: [MealItem(name: 'Гречка варёная', grams: 200, kcal100: 110)],
+    _med(s);
+    final past = dayOf(DateTime.now()).subtract(const Duration(days: 1));
+    final slots = s.slotsFor(past);
+    s.toggle(slots[0], at: slots[0].planned.add(const Duration(minutes: 20)));
+    s.toggle(
+      slots[1],
+      at: slots[1].planned.subtract(const Duration(minutes: 10)),
     );
-    s.upsertMeal(meal);
-    expect(s.summary(DateTime.now()).kcal, 220);
+    final sum = s.summary(past);
+    expect(sum.taken, 2);
+    expect(sum.offsetMinutes, 30);
   });
 
-  testWidgets('редактор лекарства открывается из схемы', (tester) async {
+  testWidgets('medication editor opens from the schedule', (tester) async {
     final s = await tester.runAsync(_store);
     _med(s!);
-    await tester.pumpWidget(StoreScope(store: s, child: const MedCrossApp()));
+    await tester.pumpWidget(StoreScope(store: s, child: const MedLogApp()));
     await tester.tap(find.text('Схема'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Метформин').last);

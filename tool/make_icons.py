@@ -1,5 +1,6 @@
-"""Генерирует иконки PWA: гранёный (low-poly) крест из двух половин —
-светлой травяной зелёной и тёмной насыщенной синей, в стиле иконки calorie_cam.
+"""Generates the PWA icons: a faceted (low-poly) cross made of two halves,
+a lighter herb green and a darker saturated blue, in the style of the
+calorie_cam icon.
 
     python3 tool/make_icons.py [preview.png]
 """
@@ -8,10 +9,11 @@ import sys
 
 from PIL import Image, ImageDraw
 
-SS = 4  # суперсэмплинг
+SS = 4  # supersampling
 
-# Левая половина креста в поле 512×512; правая — зеркальная.
-# T/BT — верх и низ шва, M1..M3 — точки на шве, I/J/K/L — внутренние точки граней.
+# Left half of the cross in a 512×512 box; the right half is its mirror image.
+# T/BT are the top and bottom of the seam, M1..M3 lie on the seam,
+# I/J/K/L are inner facet points.
 P = {
     'T': (256, 62), 'A': (178, 62), 'B': (178, 178), 'C': (62, 178), 'D': (62, 334),
     'E': (178, 334), 'F': (178, 450), 'BT': (256, 450),
@@ -19,17 +21,17 @@ P = {
     'I': (212, 116), 'J': (208, 262), 'K': (118, 236), 'L': (214, 404),
 }
 FACETS = [
-    ('T', 'A', 'I'), ('A', 'B', 'I'), ('I', 'B', 'M1'), ('I', 'M1', 'T'),          # верхний луч
-    ('B', 'M2', 'M1'), ('B', 'J', 'M2'), ('B', 'E', 'J'), ('J', 'E', 'M3'), ('J', 'M3', 'M2'),  # центр
-    ('C', 'B', 'K'), ('K', 'B', 'E'), ('K', 'E', 'D'), ('C', 'K', 'D'),            # боковой луч
-    ('E', 'L', 'M3'), ('E', 'F', 'L'), ('F', 'BT', 'L'), ('L', 'BT', 'M3'),        # нижний луч
+    ('T', 'A', 'I'), ('A', 'B', 'I'), ('I', 'B', 'M1'), ('I', 'M1', 'T'),          # top arm
+    ('B', 'M2', 'M1'), ('B', 'J', 'M2'), ('B', 'E', 'J'), ('J', 'E', 'M3'), ('J', 'M3', 'M2'),  # center
+    ('C', 'B', 'K'), ('K', 'B', 'E'), ('K', 'E', 'D'), ('C', 'K', 'D'),            # side arm
+    ('E', 'L', 'M3'), ('E', 'F', 'L'), ('F', 'BT', 'L'), ('L', 'BT', 'M3'),        # bottom arm
 ]
 OUTLINE = ['T', 'A', 'B', 'C', 'D', 'E', 'F', 'BT']
 
-# Каждая половина переливается от тёмного к светлому тону; свет — сверху слева.
+# Each half shades from a dark to a light tone; light comes from the top left.
 HALVES = [
-    {'mirror': False, 'dark': (62, 127, 44), 'light': (178, 222, 132)},  # травяной зелёный
-    {'mirror': True, 'dark': (9, 34, 120), 'light': (47, 107, 234)},     # насыщенный синий
+    {'mirror': False, 'dark': (62, 127, 44), 'light': (178, 222, 132)},  # herb green
+    {'mirror': True, 'dark': (9, 34, 120), 'light': (47, 107, 234)},     # saturated blue
 ]
 JITTER = [0.08, -0.06, 0.1, -0.04, 0.05, -0.08, 0.06, -0.05, 0.09,
           -0.07, 0.04, -0.09, 0.07, -0.03, 0.02, -0.06, 0.05]
@@ -51,7 +53,7 @@ def background(size):
 
 
 def cross(size, scale):
-    """Крест на прозрачном слое size×size; scale — доля поля под крест."""
+    """The cross on a transparent size×size layer; scale is the share of the box it fills."""
     S = size * SS
     k = S / 512 * scale
     off = (S - 512 * k) / 2
@@ -77,7 +79,7 @@ def cross(size, scale):
             ld.line(poly + [poly[0]], fill=(255, 255, 255, 140), width=max(1, round(3 * k)), joint='curve')
     img.alpha_composite(lines)
 
-    # шов и тёмный контур
+    # seam and dark outline
     edge = Image.new('RGBA', (S, S), (0, 0, 0, 0))
     ed = ImageDraw.Draw(edge)
     seam = [tr(P[key]) for key in ('T', 'M1', 'M2', 'M3', 'BT')]
@@ -101,13 +103,13 @@ root = os.path.join(here, '..')
 outputs = [
     ('web/icons/Icon-192.png', 192, 0.86, True),
     ('web/icons/Icon-512.png', 512, 0.86, True),
-    # maskable обрезается системой — крест внутри безопасной зоны
+    # maskable icons are cropped by the OS: keep the cross inside the safe zone
     ('web/icons/Icon-maskable-192.png', 192, 0.66, True),
     ('web/icons/Icon-maskable-512.png', 512, 0.66, True),
     ('web/icons/apple-touch-icon.png', 180, 0.8, True),
     ('web/favicon.png', 64, 1.0, False),
-    ('web/icons/logo.png', 256, 1.0, False),   # заставка загрузки
-    ('assets/logo.png', 256, 1.0, False),      # логотип в приложении
+    ('web/icons/logo.png', 256, 1.0, False),   # loading splash
+    ('assets/logo.png', 256, 1.0, False),      # in-app logo
 ]
 for path, size, scale, bg in outputs:
     img = icon(size, scale, bg)

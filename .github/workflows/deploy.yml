@@ -1,4 +1,4 @@
-name: Сборка и публикация на GitHub Pages
+name: Build and deploy to GitHub Pages
 
 on:
   push:
@@ -18,7 +18,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # только для создания релиза по тегу
+      contents: write   # only to create a release for a tag
     steps:
       - uses: actions/checkout@v4
 
@@ -28,24 +28,24 @@ jobs:
           flutter-version: 3.44.8
           cache: true
 
-      - name: Зависимости
+      - name: Install dependencies
         run: flutter pub get
 
-      - name: Анализ
+      - name: Analyze
         run: flutter analyze
 
-      - name: Тесты
+      - name: Test
         run: flutter test
 
-      # Тег vX.Y.Z должен совпадать с version: в pubspec.yaml.
-      - name: Проверка версии тега
+      # The vX.Y.Z tag must match version: in pubspec.yaml.
+      - name: Check tag version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           v=$(grep -E '^version:' pubspec.yaml | awk '{print $2}'); v=${v%%+*}
-          [ "v$v" = "${GITHUB_REF_NAME}" ] || { echo "Тег ${GITHUB_REF_NAME} ≠ версии $v в pubspec.yaml"; exit 1; }
+          [ "v$v" = "${GITHUB_REF_NAME}" ] || { echo "Tag ${GITHUB_REF_NAME} does not match version $v in pubspec.yaml"; exit 1; }
 
-      # Сайт проекта: https://<user>.github.io/<repo>/
-      - name: Сборка PWA
+      # Project site: https://<user>.github.io/<repo>/
+      - name: Build PWA
         env:
           BUILD_NUMBER: ${{ github.run_number }}
           COMMIT: ${{ github.sha }}
@@ -56,24 +56,24 @@ jobs:
         with:
           path: build/web
 
-      - name: Архив сборки для релиза
+      - name: Zip the build for the release
         if: startsWith(github.ref, 'refs/tags/v')
         run: cd build/web && zip -qr "$GITHUB_WORKSPACE/medlog-web-${GITHUB_REF_NAME}.zip" .
 
-      - name: Релиз GitHub
+      - name: Create GitHub release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           v=${GITHUB_REF_NAME#v}
-          # Раздел версии из CHANGELOG.md — описание релиза.
+          # The version's section of CHANGELOG.md becomes the release notes.
           awk -v v="$v" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ || /^\[.*\]: / {f=0} f' CHANGELOG.md > notes.md
           gh release create "$GITHUB_REF_NAME" "medlog-web-${GITHUB_REF_NAME}.zip" \
             --title "$GITHUB_REF_NAME" --notes-file notes.md
 
   deploy:
-    # Окружение github-pages по умолчанию принимает только основную ветку;
-    # тег vX.Y.Z публикует релиз с архивом сборки (шаги выше).
+    # The github-pages environment accepts only the default branch by default;
+    # a vX.Y.Z tag publishes a release with the zipped build (steps above).
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
