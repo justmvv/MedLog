@@ -115,13 +115,27 @@ class DaySummary {
     required this.planned,
     required this.taken,
     required this.offsetMinutes,
-  });
+    int? scheduled,
+  }) : scheduled = scheduled ?? planned;
 
+  /// Doses that are already due or taken (what adherence is measured on).
   final int planned;
   final int taken;
+
+  /// All doses of the day, including the ones still ahead today.
+  final int scheduled;
 
   /// Sum of |actual − planned| over taken doses, in minutes.
   final int offsetMinutes;
 
+  /// Doses still ahead today (not due yet and not taken).
+  int get upcoming => scheduled - planned;
+
+  /// Today, with doses still ahead: the day isn't over yet.
+  bool get inProgress => upcoming > 0;
+
   double? get adherence => planned == 0 ? null : taken / planned;
+
+  /// Share of all the day's doses taken; full only when the whole day is done.
+  double? get progress => scheduled == 0 ? null : taken / scheduled;
 }

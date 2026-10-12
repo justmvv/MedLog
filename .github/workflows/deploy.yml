@@ -49,6 +49,7 @@ jobs:
         env:
           BUILD_NUMBER: ${{ github.run_number }}
           COMMIT: ${{ github.sha }}
+          SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/
         run: tool/build_web.sh --base-href "/${{ github.event.repository.name }}/"
 
       - uses: actions/upload-pages-artifact@v3

@@ -39,7 +39,7 @@ class _MonthScreenState extends State<MonthScreen> {
     final planned = sums.values.fold(0, (a, s) => a + s.planned);
     final taken = sums.values.fold(0, (a, s) => a + s.taken);
     final perfect = sums.values
-        .where((s) => s.planned > 0 && s.taken == s.planned)
+        .where((s) => s.planned > 0 && s.taken == s.planned && !s.inProgress)
         .length;
     final offset = sums.values.fold(0, (a, s) => a + s.offsetMinutes);
     final canForward = _month.isBefore(DateTime(today.year, today.month));
@@ -151,11 +151,13 @@ class HeatCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = summary;
-    // value: null means no data, 0..1 is the intensity
-    final value = s?.adherence;
+    // value: null means no data, 0..1 is the share of the day's doses taken.
+    // Today, with doses still ahead, is never shown as done or as missed.
+    final value = s?.progress;
     final future = s == null;
+    final pending = s != null && s.inProgress;
     final full = value != null && value >= 0.999;
-    final missedAll = value == 0;
+    final missedAll = value == 0 && !pending;
 
     Color border;
     if (future) {
@@ -191,24 +193,42 @@ class HeatCell extends StatelessWidget {
             : null,
         child: Padding(
           padding: const EdgeInsets.all(4),
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 3),
-              color: full || future ? null : C.paper.withValues(alpha: 0.85),
-              child: Text(
-                '${day.day}',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
-                  color: full
-                      ? Colors.white
-                      : future
-                      ? C.line
-                      : C.ink,
+          child: Stack(
+            children: [
+              if (pending)
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    color: C.paper.withValues(alpha: 0.85),
+                    child: Text(
+                      '${s.taken}/${s.scheduled}',
+                      style: const TextStyle(fontSize: 9, color: C.inkSoft),
+                    ),
+                  ),
+                ),
+              Align(
+                alignment: Alignment.topLeft,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  color: full || future
+                      ? null
+                      : C.paper.withValues(alpha: 0.85),
+                  child: Text(
+                    '${day.day}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
+                      color: full
+                          ? Colors.white
+                          : future
+                          ? C.line
+                          : C.ink,
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),
@@ -227,6 +247,9 @@ class HeatCell extends StatelessWidget {
     final s = summary;
     final date = DateFormat('d MMMM').format(day);
     if (s == null) return date;
+    if (s.inProgress) {
+      return '$date\nприёмы: ${s.taken} из ${s.scheduled}, впереди ${s.upcoming}';
+    }
     return '$date\nприёмы: ${s.taken}/${s.planned}';
   }
 }

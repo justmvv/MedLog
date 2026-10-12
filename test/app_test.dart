@@ -72,6 +72,28 @@ void main() {
     expect(s.slotsFor(past), hasLength(2));
   });
 
+  test('today is in progress while doses are still ahead', () async {
+    final s = await _store();
+    _med(s); // 08:30 and 20:30
+    final today = dayOf(DateTime.now());
+    final noon = today.add(const Duration(hours: 12));
+    s.toggle(
+      s.slotsFor(today).first,
+      at: today.add(const Duration(minutes: 515)),
+    );
+
+    final midday = s.summary(today, now: noon);
+    expect(midday.planned, 1); // only the 08:30 dose is due
+    expect(midday.adherence, 1.0); // nothing due was missed...
+    expect(midday.scheduled, 2);
+    expect(midday.inProgress, isTrue); // ...but the day isn't done
+    expect(midday.progress, 0.5); // so the heatmap must not show it as full
+
+    final night = s.summary(today, now: today.add(const Duration(hours: 23)));
+    expect(night.inProgress, isFalse);
+    expect(night.progress, 0.5);
+  });
+
   test('day summary measures the offset from the planned time', () async {
     final s = await _store();
     _med(s);

@@ -191,14 +191,16 @@ class AppStore extends ChangeNotifier {
 
   /// For today, only doses that are already due (or taken) count; otherwise
   /// the day would look "missed" in the morning.
-  DaySummary summary(DateTime day) {
-    final now = DateTime.now();
-    final slots = slotsFor(
-      day,
-    ).where((s) => s.taken || !s.planned.isAfter(now)).toList();
+  DaySummary summary(DateTime day, {DateTime? now}) {
+    now ??= DateTime.now();
+    final all = slotsFor(day);
+    final slots = all
+        .where((s) => s.taken || !s.planned.isAfter(now!))
+        .toList();
     final taken = slots.where((s) => s.taken);
     return DaySummary(
       planned: slots.length,
+      scheduled: all.length,
       taken: taken.length,
       offsetMinutes: taken.fold(
         0,

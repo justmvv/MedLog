@@ -13,6 +13,9 @@
 # when the code has actually changed. Scripts get unique URLs (?v=BUILD) so the
 # browser's memory cache can't mix in a file from a previous version.
 #
+# With $SITE_URL set (CI does), absolute og:url / og:image are added for link
+# previews.
+#
 # The manifest id is set to the base href: an id is resolved against the
 # origin, so a relative "./" on <user>.github.io/<repo>/ would claim the whole
 # origin.
@@ -48,6 +51,11 @@ BUILD=$( (cat "$OUT/main.dart.js" "$OUT/flutter_bootstrap.js" "$OUT/index.html" 
 sed -i.bak "s/^const buildVersion = '';/const buildVersion = '$BUILD';/" "$OUT/flutter_bootstrap.js"
 sed -i.bak "s#src=\"flutter_bootstrap.js\"#src=\"flutter_bootstrap.js?v=$BUILD\"#" "$OUT/index.html"
 sed -i.bak "s#\"id\": \"[^\"]*\"#\"id\": \"$BASE_HREF\"#" "$OUT/manifest.json"
+# Link previews need absolute URLs: $SITE_URL (e.g. https://user.github.io/MedLog/).
+if [ -n "${SITE_URL:-}" ]; then
+  OG="<meta property=\"og:url\" content=\"$SITE_URL\"> <meta property=\"og:image\" content=\"${SITE_URL}icons/Icon-512.png\">"
+  sed -i.bak "s#<!--og:abs-->#$OG#" "$OUT/index.html"
+fi
 rm -f "$OUT"/*.bak
 
 python3 - "$OUT" "$BUILD" "$VERSION_NAME+$BUILD_NUMBER" "$COMMIT" <<'PY'
